@@ -1,5 +1,5 @@
-from flask import Flask, jsonify, request
-from flask_restful import Api, Resource
+from flask import Flask, jsonify, request #common library to build servers
+from flask_restful import Api, Resource #give additional resources to play with doc strings
 from flasgger import Swagger
 
 import book_review
@@ -35,102 +35,59 @@ class UppercaseText(Resource):
         """
         text = request.args.get('text')
 
-        return jsonify({"text": text.upper()})
-    
-class Records(Resource):
+        return {"text": text.upper()},200
+
+class StringGenerator(Resource):
     def get(self):
         """
-        This method responds to the GET request for returning a number of books.
+        This method responds to the GET request for this endpoint and generates a modified string based on provided parameters.
         ---
         tags:
-        - Records
+        - String Processing
         parameters:
-            - name: count
+            - name: message
+              in: query
+              type: string
+              required: true
+              description: The message to be processed
+            - name: duplication_factor
               in: query
               type: integer
               required: false
-              description: The number of books to return
-            - name: sort
+              default: 1
+              description: The number of times the message should be duplicated
+            - name: capitalization
               in: query
               type: string
-              enum: ['ASC', 'DESC']
               required: false
-              description: Sort order for the books
+              enum: [UPPER, LOWER, None]
+              description: Specify 'UPPER' for uppercase, 'LOWER' for lowercase, or leave empty for no capitalization change
         responses:
             200:
                 description: A successful GET request
-                schema:
-                    type: object
-                    properties:
-                        books:
-                            type: array
-                            items:
-                                type: object
-                                properties:
-                                    title:
-                                        type: string
-                                        description: The title of the book
-                                    author:
-                                        type: string
-                                        description: The author of the book
+                content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                            result:
+                                type: string
+                                description: The processed message
         """
+        args = request.args
+        message = args['message']
+        duplication_factor = int(args.get('duplication_factor',1))
+        capitalization = args.get('capitalization',None)
+     
+        if capitalization == 'UPPER':
+            message = message.upper()
+        elif capitalization == 'LOWER':
+            message = message.lower()
 
-        count = request.args.get('count')  # Default to returning 10 books if count is not provided
-        sort = request.args.get('sort')
+        generated_text = message * duplication_factor
+        return {"generated_text": generated_text} , 200
 
-        # Get all the books
-        books = book_review.get_all_records(count=count, sort=sort)
-
-        return {"books": books}, 200
-    
-class AddRecord(Resource):
-    def post(self):
-        """
-        This method responds to the POST request for adding a new record to the DB table.
-        ---
-        tags:
-        - Records
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                id: BookReview
-                required:
-                  - Book
-                  - Rating
-                properties:
-                  Book:
-                    type: string
-                    description: the name of the book
-                  Rating:
-                    type: integer
-                    description: the rating of the book (1-10)
-        responses:
-            200:
-                description: A successful POST request
-            400: 
-                description: Bad request, missing 'Book' or 'Rating' in the request body
-        """
-
-        data = request.json
-        print(data)
-
-        # Check if 'Book' and 'Rating' are present in the request body
-        if 'Book' not in data or 'Rating' not in data:
-            return {"message": "Bad request, missing 'Book' or 'Rating' in the request body"}, 400
-        # Call the add_record function to add the record to the DB table
-        success = book_review.add_record(data)
-
-        if success:
-            return {"message": "Record added successfully"}, 200
-        else:
-            return {"message": "Failed to add record"}, 500
-        
-
-
-api.add_resource(AddRecord, "/add-record")
-api.add_resource(Records, "/records")
+api.add_resource(StringGenerator, "/generate")
 api.add_resource(UppercaseText, "/uppercase")
 
 if __name__ == "__main__":
